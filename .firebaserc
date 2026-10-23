@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "it0108"
+  },
+  "targets": {
+    "it0108": {
+      "hosting": {
+        "it0108-rentnear": [
+          "it0108-rentnear"
+        ]
+      }
+    }
+  }
+}
