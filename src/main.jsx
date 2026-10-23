@@ -12,9 +12,8 @@ import {
   signOut, updateProfile
 } from "firebase/auth";
 import {
-  addDoc, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp,
-  setDoc, updateDoc, where
-} from "firebase/firestore";
+  onValue, push, ref as dbRef, serverTimestamp, update
+} from "firebase/database";
 import {
   deleteObject, getDownloadURL, ref, uploadBytes
 } from "firebase/storage";
@@ -33,7 +32,7 @@ const friendlyError = (error) => {
   if (code.includes("auth/weak-password")) return "Please use a password with at least 6 characters.";
   if (code.includes("auth/invalid-email")) return "Please enter a valid email address.";
   if (code.includes("auth/operation-not-allowed")) return "Email/password sign-in is not enabled in Firebase Authentication yet.";
-  if (code.includes("permission-denied")) return "Firebase blocked this action. Deploy the Firestore and Storage rules included in the repository.";
+  if (code.toLowerCase().includes("permission-denied") || code.includes("PERMISSION_DENIED")) return "Firebase blocked this action. Deploy database.rules.json and storage.rules from the repository.";
   if (code.includes("storage/unauthorized")) return "Firebase Storage blocked the image upload. Deploy storage.rules and confirm Storage is enabled.";
   if (code.includes("storage/bucket-not-found") || code.includes("storage/no-default-bucket")) return "Create/enable a Storage bucket for the it0108 Firebase project.";
   if (code.includes("unavailable") || code.includes("network-request-failed")) return "Firebase is unreachable right now. Check your connection and Firebase project settings.";
@@ -87,11 +86,11 @@ function App() {
   useEffect(() => {
     setLoadingListings(true);
     setFirebaseError("");
-    const q = query(collection(db, "listings"), where("status", "==", "active"));
-    return onSnapshot(q, (snapshot) => {
-      const next = snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
-      next.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
-      setListings(next);
+    return onValue(dbRef(db, "publicListings"), (snapshot) => {
+      const records = snapshot.val() || {};
+      const next = Object.entries(records).map(([id, data]) => ({ id, ...data }));
+      next.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+      setListings(next.filter((listing) => listing.status === "active"));
       setLoadingListings(false);
       setFirebaseError("");
     }, (error) => {
@@ -105,10 +104,10 @@ function App() {
       setMyListings([]);
       return undefined;
     }
-    const q = query(collection(db, "listings"), where("ownerUid", "==", user.uid));
-    return onSnapshot(q, (snapshot) => {
-      const next = snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
-      next.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+    return onValue(dbRef(db, `ownerListings/${user.uid}`), (snapshot) => {
+      const records = snapshot.val() || {};
+      const next = Object.entries(records).map(([id, data]) => ({ id, ...data }));
+      next.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
       setMyListings(next);
     }, (error) => setNotice(friendlyError(error)));
   }, [user]);
@@ -229,12 +228,17 @@ function App() {
       return;
     }
 
-    const listingRef = doc(collection(db, "listings"));
+    const listingId = push(dbRef(db, `ownerListings/${user.uid}`)).key;
+    if (!listingId) {
+      setOwnerError("Could not create a listing ID. Please try again.");
+      setOwnerBusy(false);
+      return;
+    }
     const uploadedPaths = [];
     try {
       const uploadedImages = await Promise.all(photos.map(async (photo, index) => {
         const cleanName = photo.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-80) || `photo-${index + 1}.jpg`;
-        const storagePath = `listingPhotos/${user.uid}/${listingRef.id}/${Date.now()}-${index}-${cleanName}`;
+        const storagePath = `listingPhotos/${user.uid}/${listingId}/${Date.now()}-${index}-${cleanName}`;
         const storageRef = ref(storage, storagePath);
         await uploadBytes(storageRef, photo, { contentType: photo.type });
         uploadedPaths.push(storagePath);
@@ -242,7 +246,7 @@ function App() {
       }));
 
       const amenities = form.amenities.split(",").map((item) => item.trim()).filter(Boolean).slice(0, 15);
-      await setDoc(listingRef, {
+      const listingData = {
         title: form.title.trim(),
         type: form.type,
         config: form.config,
@@ -266,6 +270,11 @@ function App() {
         verified: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
+      };
+      // Keep the public active index and private owner dashboard in sync atomically.
+      await update(dbRef(db), {
+        [`ownerListings/${user.uid}/${listingId}`]: listingData,
+        [`publicListings/${listingId}`]: listingData
       });
       setOwnerOpen(false);
       setOwnerForm(initialForm());
@@ -285,7 +294,12 @@ function App() {
 
   async function changeStatus(listing, status) {
     try {
-      await updateDoc(doc(db, "listings", listing.id), { status, updatedAt: serverTimestamp() });
+      const { id, ...storedListing } = listing;
+      const updatedListing = { ...storedListing, status, updatedAt: Date.now() };
+      await update(dbRef(db), {
+        [`ownerListings/${user.uid}/${id}`]: updatedListing,
+        [`publicListings/${id}`]: status === "active" ? updatedListing : null
+      });
       toast(status === "active" ? "Listing is visible to renters again." : status === "rented" ? "Listing marked as rented." : "Listing paused.");
     } catch (error) {
       toast(friendlyError(error));
@@ -296,7 +310,10 @@ function App() {
     if (!window.confirm(`Delete "${listing.title}"? This cannot be undone.`)) return;
     try {
       await Promise.all((listing.imagePaths || []).map((path) => deleteObject(ref(storage, path)).catch(() => undefined)));
-      await deleteDoc(doc(db, "listings", listing.id));
+      await update(dbRef(db), {
+        [`ownerListings/${user.uid}/${listing.id}`]: null,
+        [`publicListings/${listing.id}`]: null
+      });
       setSelectedListing(null);
       toast("Listing deleted.");
     } catch (error) {
@@ -380,7 +397,7 @@ function App() {
             </div>
           </div>}
 
-          {firebaseError && <div className="firebase-warning"><AlertTriangle size={19} /><div><b>Could not load live listings</b><p>{firebaseError}</p><small>Check that Firestore is created and firestore.rules has been deployed.</small></div></div>}
+          {firebaseError && <div className="firebase-warning"><AlertTriangle size={19} /><div><b>Could not load live listings</b><p>{firebaseError}</p><small>Check that Realtime Database is enabled and database.rules.json has been deployed.</small></div></div>}
           {!authReady && <div className="load-state"><Loader2 className="spin" size={22} /> Connecting to RentNear…</div>}
           {loadingListings && authReady && <div className="load-state"><Loader2 className="spin" size={22} /> Loading available homes from Firebase…</div>}
 
