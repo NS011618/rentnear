@@ -84,6 +84,6 @@ Firebase Hosting config is in `firebase.json`; its public directory is `dist`, w
 - Listings/photos are public by design. Owners should not upload identity documents or sensitive private access details.
 - Test Firestore/Storage rules before broad launch and configure budget alerts.
 
-## GitHub Pages
+## GitHub Pages (optional)
 
-The same frontend also builds on GitHub Pages at `https://ns011618.github.io/rentnear/`. GitHub Pages only hosts the static client; Firebase provides shared data, sign-in, and image storage.
+The repository includes a GitHub Actions Vite build for `https://ns011618.github.io/rentnear/`. In GitHub repository **Settings → Pages → Build and deployment → Source**, select **GitHub Actions**. Do not use “Deploy from a branch” with the repository root: `index.html` is a Vite entry and must be compiled before the browser can load the React app. Firebase Hosting remains configured separately for the Firebase production domain.
