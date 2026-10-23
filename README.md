@@ -38,7 +38,7 @@ The source code and Firebase deployment config are in place. Enable these produc
 2. **Firestore Database** → create a database if the project does not already have one.
 3. **Storage** → get started/create a Storage bucket if it is not already provisioned.
 
-Choose the database/storage region carefully because it may be difficult or impossible to change later. Firebase may ask for a billing plan for some Storage setups. The app's Firebase web configuration is in `src/firebase.js`; this client config is public by design, so real protection must come from Authentication and Security Rules.
+Choose the database/storage region carefully because it may be difficult or impossible to change later. **Important billing note:** as of February 3, 2026, Firebase Cloud Storage requires the pay-as-you-go Blaze plan linked to a Cloud Billing account, even though no-cost usage is still available within applicable quotas. If avoiding any billing-account setup is a hard requirement, pause before enabling Storage and choose an alternative image-storage provider. The app's Firebase web configuration is in `src/firebase.js`; this client config is public by design, so real protection must come from Authentication and Security Rules.
 
 ## Deploy to Firebase Hosting
 
