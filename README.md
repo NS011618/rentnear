@@ -5,12 +5,12 @@ RentNear helps people discover **family homes, flats, independent houses, rooms,
 ## Firebase implementation
 
 - Firebase Authentication using email/password: owner account creation and sign-in.
-- Cloud Firestore: shared, live rental listings.
+- Firebase Realtime Database: live public listings plus private owner-scoped listing records.
 - Cloud Storage: owner property-photo upload (1–6 images, max 5 MB each).
 - Owner dashboard: view listings, pause/reactivate, mark rented, and delete.
 - Renter search: locality/city/PIN/title, property type, rent, furnishing, and verified filter.
 - Public property detail card with owner contact (owners explicitly consent before publishing their phone).
-- Firestore and Storage security rules in this repository.
+- Realtime Database and Storage security rules in this repository.
 - Firebase Hosting config for the `it0108-rentnear` Hosting site.
 - No security-deposit amount field is stored or shown.
 
@@ -35,7 +35,7 @@ npm run preview
 The source code and Firebase deployment config are in place. Enable these products in the [Firebase Console](https://console.firebase.google.com/project/it0108/overview):
 
 1. **Authentication** → Sign-in method → enable **Email/Password**.
-2. **Firestore Database** → create a database if the project does not already have one.
+2. **Realtime Database** → create/enable the database at the URL configured in `src/firebase.js` if it is not already provisioned.
 3. **Storage** → get started/create a Storage bucket if it is not already provisioned.
 
 Choose the database/storage region carefully because it may be difficult or impossible to change later. **Important billing note:** as of February 3, 2026, Firebase Cloud Storage requires the pay-as-you-go Blaze plan linked to a Cloud Billing account, even though no-cost usage is still available within applicable quotas. If avoiding any billing-account setup is a hard requirement, pause before enabling Storage and choose an alternative image-storage provider. The app's Firebase web configuration is in `src/firebase.js`; this client config is public by design, so real protection must come from Authentication and Security Rules.
@@ -55,10 +55,10 @@ The repository contains `.firebaserc` with a Hosting target mapping. If the Host
 ```bash
 npm install
 npm run build
-firebase deploy --only hosting:it0108-rentnear,firestore:rules,storage
+firebase deploy --only hosting:it0108-rentnear,database,storage
 ```
 
-The command above publishes the website and the included Firestore/Storage rules. The Hosting target is configured as the target alias `it0108-rentnear` pointing to the Hosting site with the same site ID. If the site does not exist yet, create it in Firebase Console → Hosting or with `firebase hosting:sites:create it0108-rentnear --project it0108`, then apply the target mapping:
+The command above publishes the website and the included Realtime Database/Storage rules. The Hosting target is configured as the target alias `it0108-rentnear` pointing to the Hosting site with the same site ID. If the site does not exist yet, create it in Firebase Console → Hosting or with `firebase hosting:sites:create it0108-rentnear --project it0108`, then apply the target mapping:
 
 ```bash
 firebase target:apply hosting it0108-rentnear it0108-rentnear --project it0108
@@ -70,7 +70,7 @@ Firebase Hosting config is in `firebase.json`; its public directory is `dist`, w
 
 - Anyone can read active rental listings.
 - Only the authenticated owner who created a listing can edit, pause, reactivate, or delete it.
-- Owners must explicitly accept the zero-deposit policy. Security-deposit fields are explicitly rejected by the Firestore rules.
+- Owners must explicitly accept the zero-deposit policy. Security-deposit fields are explicitly rejected by the Realtime Database rules.
 - Phone numbers are shown publicly only when the owner confirms consent in the listing form.
 - The `verified` field is locked to `false` for client-created listings; do not mark anyone verified until an administrator process is implemented.
 - Storage uploads are restricted to an owner's own listing folder, image MIME types, and files below 5 MB.
@@ -78,11 +78,11 @@ Firebase Hosting config is in `firebase.json`; its public directory is `dist`, w
 
 ## Important remaining launch work
 
-- Verify the intended Firebase Authentication, Firestore and Storage products are enabled in the Firebase Console.
+- Verify the intended Firebase Authentication, Realtime Database and Storage products are enabled in the Firebase Console.
 - Test sign-up, sign-in, posting, image loading, owner status changes, and deletion in the deployed site.
 - Owner identity/property verification, map pins/geocoding, abuse reporting, privacy/terms pages, and real ad network integration are not fully implemented yet.
 - Listings/photos are public by design. Owners should not upload identity documents or sensitive private access details.
-- Test Firestore/Storage rules before broad launch and configure budget alerts.
+- Test Realtime Database/Storage rules before broad launch and configure budget alerts.
 
 ## GitHub Pages (optional)
 
