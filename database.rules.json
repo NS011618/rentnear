@@ -1,0 +1,22 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "publicListings": {
+      "$listingId": {
+        ".read": true,
+        ".write": "auth != null && ((data.exists() && data.child('ownerUid').val() == auth.uid) || (newData.exists() && newData.child('ownerUid').val() == auth.uid))",
+        ".validate": "newData.hasChildren(['title', 'type', 'config', 'city', 'area', 'pincode', 'address', 'rent', 'furnishing', 'availableFrom', 'description', 'amenities', 'images', 'imagePaths', 'ownerUid', 'ownerName', 'ownerPhone', 'contactPublic', 'zeroDepositAccepted', 'status', 'verified', 'createdAt', 'updatedAt']) && !newData.hasChild('deposit') && !newData.hasChild('securityDeposit') && !newData.hasChild('security_deposit') && newData.child('ownerUid').val() == auth.uid && newData.child('contactPublic').val() == true && newData.child('zeroDepositAccepted').val() == true && newData.child('status').val() == 'active' && newData.child('verified').val() == false && newData.child('rent').isNumber() && newData.child('rent').val() > 0 && newData.child('images').numChildren() >= 1 && newData.child('images').numChildren() <= 6 && newData.child('imagePaths').numChildren() == newData.child('images').numChildren()"
+      }
+    },
+    "ownerListings": {
+      "$ownerUid": {
+        ".read": "auth != null && auth.uid == $ownerUid",
+        "$listingId": {
+          ".write": "auth != null && auth.uid == $ownerUid",
+          ".validate": "newData.hasChildren(['title', 'type', 'config', 'city', 'area', 'pincode', 'address', 'rent', 'furnishing', 'availableFrom', 'description', 'amenities', 'images', 'imagePaths', 'ownerUid', 'ownerName', 'ownerPhone', 'contactPublic', 'zeroDepositAccepted', 'status', 'verified', 'createdAt', 'updatedAt']) && !newData.hasChild('deposit') && !newData.hasChild('securityDeposit') && !newData.hasChild('security_deposit') && newData.child('ownerUid').val() == $ownerUid && newData.child('contactPublic').val() == true && newData.child('zeroDepositAccepted').val() == true && newData.child('verified').val() == false && newData.child('rent').isNumber() && newData.child('rent').val() > 0 && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('title').val().length <= 100 && newData.child('images').numChildren() >= 1 && newData.child('images').numChildren() <= 6 && newData.child('imagePaths').numChildren() == newData.child('images').numChildren() && (newData.child('status').val() == 'active' || newData.child('status').val() == 'paused' || newData.child('status').val() == 'rented')"
+        }
+      }
+    }
+  }
+}
