@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function owns(data) {
+      return signedIn() && data.ownerUid == request.auth.uid;
+    }
+
+    function validListing() {
+      return request.resource.data.keys().hasAll([
+        'title', 'type', 'config', 'city', 'area', 'pincode', 'address',
+        'rent', 'furnishing', 'availableFrom', 'description', 'amenities',
+        'images', 'imagePaths', 'ownerUid', 'ownerName', 'ownerPhone',
+        'contactPublic', 'zeroDepositAccepted', 'status', 'verified',
+        'createdAt', 'updatedAt'
+      ])
+      && !request.resource.data.keys().hasAny(['deposit', 'securityDeposit', 'security_deposit'])
+      && request.resource.data.ownerUid == request.auth.uid
+      && request.resource.data.zeroDepositAccepted == true
+      && request.resource.data.contactPublic == true
+      && request.resource.data.verified == false
+      && request.resource.data.rent is int
+      && request.resource.data.rent > 0
+      && request.resource.data.title is string
+      && request.resource.data.title.size() > 0
+      && request.resource.data.title.size() <= 100
+      && request.resource.data.city is string
+      && request.resource.data.area is string
+      && request.resource.data.ownerName is string
+      && request.resource.data.ownerPhone is string
+      && request.resource.data.images is list
+      && request.resource.data.images.size() >= 1
+      && request.resource.data.images.size() <= 6
+      && request.resource.data.imagePaths is list
+      && request.resource.data.imagePaths.size() == request.resource.data.images.size()
+      && request.resource.data.status in ['active', 'paused', 'rented'];
+    }
+
+    match /listings/{listingId} {
+      // Renters can read active property ads; owners can also read their own paused/rented ads.
+      allow get, list: if resource.data.status == 'active' || owns(resource.data);
+
+      allow create: if signedIn() && validListing();
+      allow update: if owns(resource.data)
+                    && validListing()
+                    && request.resource.data.ownerUid == resource.data.ownerUid
+                    && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if owns(resource.data);
+    }
+  }
+}
